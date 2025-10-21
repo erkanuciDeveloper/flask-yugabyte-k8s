@@ -1,38 +1,52 @@
-from flask import Flask, render_template, request
+from flask import Flask, jsonify, render_template
 import psycopg2
 import os
+from kubernetes import client, config
 
 app = Flask(__name__)
 
-YB_HOST = os.getenv("YUGABYTE_HOST", "yugabyte")
-YB_PORT = os.getenv("YUGABYTE_PORT", 5433)
-YB_DB = os.getenv("YUGABYTE_DB", "yugabyte")
-YB_USER = os.getenv("YUGABYTE_USER", "yugabyte")
-YB_PASSWORD = os.getenv("YUGABYTE_PASSWORD", "")
+# YugabyteDB connection
+DB_HOST = os.getenv("YB_HOST", "yugabyte.default.svc.cluster.local")
+DB_PORT = os.getenv("YB_PORT", 5433)
+DB_NAME = os.getenv("YB_DB", "yugabyte")
+DB_USER = os.getenv("YB_USER", "yugabyte")
+DB_PASS = os.getenv("YB_PASS", "yugabyte")
 
 def get_connection():
     return psycopg2.connect(
-        host=YB_HOST,
-        port=YB_PORT,
-        dbname=YB_DB,
-        user=YB_USER,
-        password=YB_PASSWORD
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASS
     )
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    message = ""
-    if request.method == "POST":
-        name = request.form.get("name")
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT);")
-        cur.execute("INSERT INTO users (name) VALUES (%s)", (name,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        message = f"Added {name}!"
-    return render_template("index.html", message=message)
+@app.route("/musteri")
+def musteri():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM musteri LIMIT 10;")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(rows)
+
+# Kubernetes Nodes
+config.load_kube_config()
+v1 = client.CoreV1Api()
+
+@app.route("/nodes")
+def nodes():
+    ret = v1.list_node()
+    node_list = []
+    for i in ret.items:
+        node_list.append({
+            "name": i.metadata.name,
+            "status": i.status.conditions[-1].type,
+            "cpu": i.status.capacity.get("cpu"),
+            "memory": i.status.capacity.get("memory")
+        })
+    return render_template("nodes.html", nodes=node_list)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
