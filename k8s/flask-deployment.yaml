@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flask-deployment
+  name: flask-yugabyte-deployment
 spec:
   replicas: 2
   selector:
@@ -34,4 +34,4 @@ spec:
   ports:
     - port: 5000
       targetPort: 5000
-      nodePort: 30007
+      nodePort: 30010
