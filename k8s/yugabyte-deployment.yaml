@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: yugabyte
+spec:
+  serviceName: "yugabyte"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: yugabyte
+  template:
+    metadata:
+      labels:
+        app: yugabyte
+    spec:
+      containers:
+      - name: yb-tserver
+        image: yugabytedb/yugabyte:2.25.2.0-b359
+        ports:
+        - containerPort: 5433
+        - containerPort: 7000
+        - containerPort: 7100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yugabyte
+spec:
+  ports:
+    - port: 5433
+  clusterIP: None
+  selector:
+    app: yugabyte
